@@ -60,28 +60,11 @@ public class ForwardKinematicsCheck : MonoBehaviour {
 
     [ContextMenu("Test Position Jacobian")]
     private void TestPositionJacobian(){
-        float[] angles = { 20f, 30f, -45f, 15f, 30f };
-        float stepDegrees = 0.1f;
-        float stepRadians = stepDegrees * Mathf.Deg2Rad;
+        float[] angles = { 20f, 90f, -45f, 15f, 30f };
 
-        Vector3[] columns = new Vector3[5];
+        Vector3[] columns = CalculatePositionJacobian(angles);
 
-        for(int i=0; i<angles.Length; i++){
-            float originalAngle = angles[i];
-
-            angles[i] = originalAngle + stepDegrees;
-            Vector3 plusPosition;
-            Quaternion unusedRotation;
-            PredictPose(angles, out plusPosition, out unusedRotation);
-
-            angles[i] = originalAngle - stepDegrees;
-            Vector3 minusPosition;
-            PredictPose(angles, out minusPosition, out unusedRotation);
-
-            angles[i] = originalAngle;
-
-            columns[i] = (plusPosition - minusPosition) / (2f * stepRadians);
-
+        for(int i=0; i<columns.Length; i++){
             Debug.Log(
                 "Joint " + (i+1) + " column (m/rad): "
                 + columns[i].ToString("F5")
@@ -117,5 +100,41 @@ public class ForwardKinematicsCheck : MonoBehaviour {
 
         Debug.Log("Error before step (m): " + beforeError);
         Debug.Log("Error after step (m): " + afterError);
+    }
+
+    public Vector3[] CalculatePositionJacobian(float[] angles){
+        float stepDegrees = 0.1f;
+        Vector3[] columns = new Vector3[angles.Length];
+
+        for(int i=0; i<angles.Length; i++){
+            RevoluteJoint joint = joints[i].GetComponent<RevoluteJoint>();
+            float originalAngle = angles[i];
+
+            float plusAngle = joint.ClampAngle(originalAngle + stepDegrees);
+            float minusAngle = joint.ClampAngle(originalAngle - stepDegrees);
+
+            float intervalRadians = (plusAngle - minusAngle) * Mathf.Deg2Rad;
+
+            if(intervalRadians <= 0f){
+                columns[i] = Vector3.zero;
+                continue;
+            }
+
+            Vector3 plusPosition;
+            Vector3 minusPosition;
+            Quaternion unusedRotation;
+
+            angles[i] = plusAngle;
+            PredictPose(angles, out plusPosition, out unusedRotation);
+
+            angles[i] = minusAngle;
+            PredictPose(angles, out minusPosition, out unusedRotation);
+
+            angles[i] = originalAngle;
+
+            columns[i] = (plusPosition - minusPosition) / intervalRadians;
+        }
+
+        return columns;
     }
 }

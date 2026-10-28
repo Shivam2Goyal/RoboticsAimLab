@@ -24,7 +24,11 @@ public class RevoluteJoint : MonoBehaviour
     }
 
     public Quaternion CalculateLocalRotation(float requestedAngle){
-        float limitedAngle = Mathf.Clamp(requestedAngle, minAngle, maxAngle);
+        float limitedAngle = ClampAngle(requestedAngle);
         return Quaternion.AngleAxis(limitedAngle, rotationAxis);
+    }
+
+    public float ClampAngle(float requestedAngle){
+        return Mathf.Clamp(requestedAngle, minAngle, maxAngle);
     }
 }
