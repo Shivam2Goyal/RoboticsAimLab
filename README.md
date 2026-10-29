@@ -33,18 +33,21 @@ Latest addition:
 
 ## Scene structure
 
+```text
 RobotRoot
 └── Joint1
     ├── Link1Visual
     └── Joint2
         ├── Link2Visual
         └── Joint3
-            ├── Link3Visual
+            ├── Link2Visual
             └── Joint4
                 ├── Link4Visual
                 └── Joint5
                     ├── Link5Visual
                     └── EndpointMarker
+```
+
 
 IKGoal is a separate scene-root object.
 The scene also contains a floor, target cube, camera, and lighting.
