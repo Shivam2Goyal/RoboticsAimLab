@@ -10,17 +10,11 @@ public class RevoluteJoint : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        angleDegrees = Mathf.Clamp(angleDegrees, minAngle, maxAngle);
-
-        transform.localRotation = CalculateLocalRotation(angleDegrees);
+        SetAngle(angleDegrees);
     }
 
     public void RotateBy(float deltaDegrees){
-        angleDegrees = Mathf.Clamp(
-            angleDegrees + deltaDegrees,
-            minAngle,
-            maxAngle
-        );
+        SetAngle(angleDegrees + deltaDegrees);
     }
 
     public Quaternion CalculateLocalRotation(float requestedAngle){
@@ -30,5 +24,14 @@ public class RevoluteJoint : MonoBehaviour
 
     public float ClampAngle(float requestedAngle){
         return Mathf.Clamp(requestedAngle, minAngle, maxAngle);
+    }
+
+    public void SetAngle(float requestedAngle){
+        angleDegrees = ClampAngle(requestedAngle);
+        transform.localRotation = CalculateLocalRotation(angleDegrees);
+    }
+
+    public float GetAngle(){
+        return angleDegrees;
     }
 }

@@ -1,9 +1,20 @@
 using UnityEngine;
+using System.Collections;
 
 public class ForwardKinematicsCheck : MonoBehaviour {
     [SerializeField] private Transform robotRoot;
     [SerializeField] private Transform[] joints = new Transform[5];
     [SerializeField] private Transform endpoint;
+    [SerializeField] private Transform ikGoal;
+
+    [SerializeField] private float movementSpeed = 30f;
+    private Coroutine movement;
+
+    [SerializeField] private bool automaticFollowing = false;
+
+    private Vector3 lastAttemptedGoal;
+    private bool hasAttemptedGoal = false;
+    private float nextSolveTime = 0f;
 
     [ContextMenu("Check Forward Kinematics")]
 
@@ -211,5 +222,118 @@ public class ForwardKinematicsCheck : MonoBehaviour {
         for(int i=0; i<solution.Length; i++){
             Debug.Log("Joint" + (i+1) + " solution: " + solution[i]);
         }
+
+        if(!reached){
+            Debug.Log("Solution was not applied: toleranec was not reached.");
+            return;
+        }
+
+        if (movement != null)
+            StopCoroutine(movement);
+
+        movement = StartCoroutine(
+            MoveToSolution(solution, targetPosition)
+        );
+    }
+
+    [ContextMenu("Place IK Goal At Endpoint")]
+    private void PlaceGoalEndpoint(){
+        ikGoal.position = endpoint.position;
+    }
+
+    [ContextMenu("Solve To IK Goal")]
+    private void SolveToIKGoal(){
+        float[] startingAngles = new float[joints.Length];
+
+        for(int i=0; i<joints.Length; i++){
+            RevoluteJoint joint = joints[i].GetComponent<RevoluteJoint>();
+            startingAngles[i] = joint.GetAngle();
+        }
+
+        Vector3 startingPosition;
+        Quaternion startingRotation;
+        PredictPose(startingAngles, out startingPosition, out startingRotation);
+
+        Debug.Log(
+            "Starting distance to IK goal (m): "
+            + Vector3.Distance(startingPosition, ikGoal.position)
+        );
+
+        float[] solution;
+        bool reached = SolvePosition(ikGoal.position, startingAngles, out solution);
+
+        Vector3 predictedPosition;
+        Quaternion unusedRotation;
+        PredictPose(solution, out predictedPosition, out unusedRotation);
+        
+        Debug.Log(
+            "Reached: " + reached
+            + "; predicted error (m): "
+            + Vector3.Distance(ikGoal.position, predictedPosition)
+        );
+
+        if(!reached) return;
+
+        if(movement != null) StopCoroutine(movement);
+
+        movement = StartCoroutine(
+            MoveToSolution(solution, ikGoal.position)
+        );
+    }
+
+    private IEnumerator MoveToSolution(float[] solution, Vector3 goalPosition){
+        bool finished = false;
+
+        while(!finished){
+            finished = true;
+            float maxStep = movementSpeed * Time.deltaTime;
+
+            for(int i=0; i<joints.Length; i++){
+                RevoluteJoint joint = joints[i].GetComponent<RevoluteJoint>();
+
+                float nextAngle = Mathf.MoveTowards(
+                    joint.GetAngle(),
+                    solution[i],
+                    maxStep
+                );
+
+                joint.SetAngle(nextAngle);
+
+                if(nextAngle != solution[i]) finished = false;
+            }
+            
+            yield return null;
+        }
+
+        Debug.Log(
+            "Movement finished. Endpoint error (m): "
+            + Vector3.Distance(goalPosition, endpoint.position)
+        );
+
+        movement = null;
+    }
+
+    private void Update(){
+        if(!automaticFollowing || ikGoal == null){
+            hasAttemptedGoal = false;
+            return;
+        }
+
+        if(Time.time < nextSolveTime) return;
+
+        bool goalChanged = !hasAttemptedGoal || Vector3.Distance(ikGoal.position, lastAttemptedGoal) > 0.005f;
+
+        if(!goalChanged) return;
+
+        nextSolveTime = Time.time + 0.25f;
+        lastAttemptedGoal = ikGoal.position;
+        hasAttemptedGoal = true;
+
+        if(movement != null){
+            StopCoroutine(movement);
+            movement = null;
+        }
+
+        SolveToIKGoal();
     }
 }
