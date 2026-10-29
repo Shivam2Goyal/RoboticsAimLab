@@ -137,4 +137,79 @@ public class ForwardKinematicsCheck : MonoBehaviour {
 
         return columns;
     }
+
+    public bool SolvePosition(Vector3 targetPosition, float[] startingAngles, out float[] solution){
+        int maxIterations = 500;
+        float tolerance = 0.001f;
+        float gain = 0.05f;
+        float maxStepRadians = 1f * Mathf.Deg2Rad;
+
+        solution = new float[startingAngles.Length];
+
+        for(int i=0; i<solution.Length; i++){
+            RevoluteJoint joint = joints[i].GetComponent<RevoluteJoint>();
+            solution[i] = joint.ClampAngle(startingAngles[i]);
+        }
+
+        for(int iteration = 0; iteration < maxIterations; iteration++){
+            Vector3 position;
+            Quaternion unusedRotation;
+            PredictPose(solution, out position, out unusedRotation);
+
+            Vector3 error = targetPosition - position;
+
+            if(error.magnitude <= tolerance) return true;
+
+            Vector3[] columns = CalculatePositionJacobian(solution);
+            float[] candidate = new float[solution.Length];
+
+            for(int i=0; i<solution.Length; i++){
+                float deltaRadians = gain * Vector3.Dot(columns[i], error);
+
+                deltaRadians = Mathf.Clamp(deltaRadians, -maxStepRadians, maxStepRadians);
+
+                RevoluteJoint joint = joints[i].GetComponent<RevoluteJoint>();
+
+                candidate[i] = joint.ClampAngle(solution[i] + deltaRadians * Mathf.Rad2Deg);
+            }
+
+            Vector3 candidatePosition;
+            PredictPose(candidate, out candidatePosition, out unusedRotation);
+
+            float candidateError = Vector3.Distance(targetPosition, candidatePosition);
+
+            if(candidateError >= error.magnitude) return false;
+
+            solution = candidate;
+        }
+
+        Vector3 finalPosition;
+        Quaternion finalRotation;
+        PredictPose(solution, out finalPosition, out finalRotation);
+
+        return Vector3.Distance(targetPosition, finalPosition) <= tolerance;
+    }
+
+    [ContextMenu("Test Iterative IK")]
+    private void TestIterativeIK(){
+        float[] startingAngles = {20f, 30f, -45f, 15f, 30f};
+        float[] goalAngles = {20f, 32f, -45f, 15f, 30f};
+
+        Vector3 targetPosition;
+        Quaternion unusedRotation;
+        PredictPose(goalAngles, out targetPosition, out unusedRotation);
+
+        float[] solution;
+        bool reached = SolvePosition(targetPosition, startingAngles, out solution);
+
+        Vector3 finalPosition;
+        PredictPose(solution, out finalPosition, out unusedRotation);
+
+        Debug.Log("Reached position tolerance: " + reached);
+        Debug.Log("Final error (m): " + Vector3.Distance(targetPosition, finalPosition));
+
+        for(int i=0; i<solution.Length; i++){
+            Debug.Log("Joint" + (i+1) + " solution: " + solution[i]);
+        }
+    }
 }
