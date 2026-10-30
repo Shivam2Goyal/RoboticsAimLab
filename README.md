@@ -46,7 +46,7 @@ RobotRoot
     └── Joint2
         ├── Link2Visual
         └── Joint3
-            ├── Link3Visual
+            ├── Link2Visual
             └── Joint4
                 ├── Link4Visual
                 └── Joint5
