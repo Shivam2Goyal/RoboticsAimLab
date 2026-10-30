@@ -26,13 +26,20 @@ Verified:
 - Application of solved angles to the visible arm
 - Smooth movement toward successful solutions
 - Scene-goal solving tested after troubleshooting
+- Endpoint orientation indicator along local +Z
 
 Latest addition:
-- Optional automatic replanning when IKGoal moves
-- End-to-end automatic-following checks remain to be recorded
+- Tool-to-target angular error, ahead/behind check, and target-centre
+  distance to the forward ray; implemented, numerical results not yet recorded
+- Blue forward-ray and green target-line visualization in the Scene view
+
+Automatic replanning triggers correctly, but general goal following is
+not reliable because the position solver can stall. Keep Automatic
+Following off for current manual orientation and alignment exercises.
 
 ## Scene structure
 
+```text
 RobotRoot
 └── Joint1
     ├── Link1Visual
@@ -44,7 +51,9 @@ RobotRoot
                 ├── Link4Visual
                 └── Joint5
                     ├── Link5Visual
-                    └── EndpointMarker
+                    ├── EndpointMarker
+                    └── ToolDirectionVisual
+```
 
 IKGoal is a separate scene-root object.
 The scene also contains a floor, target cube, camera, and lighting.
@@ -77,7 +86,8 @@ Joint1 is 0.25 metres above RobotRoot.
 - ForwardKinematicsCheck
   Contains FK diagnostics, pose prediction, numerical Jacobian
   calculations, position IK, smooth movement, and optional
-  automatic goal following.
+  automatic goal following, endpoint-direction inspection, and
+  target-alignment measurements.
 
 ## Controls
 
@@ -95,11 +105,23 @@ IK control:
 - A successful solution starts smooth joint movement.
 
 Automatic following:
-- Enable Automatic Following in the Inspector.
+- Experimental; currently disabled for lessons due to solver convergence issues.
+- Enable Automatic Following in the Inspector to test it.
 - Goal changes greater than 5 mm request another solve.
 - Attempts are limited to at most four per second.
 - Failed attempts hold the current pose.
 - An unchanged failed goal is not retried automatically.
+- Turning following off prevents new requests but does not cancel an
+  animation already running.
+
+Orientation and alignment:
+- Keep Automatic Following off and enable manual control.
+- Assign the Target cube to Interaction Target; keep IKGoal in Ik Goal.
+- ToolDirectionVisual extends along the endpoint's local +Z direction.
+- Use "Inspect Endpoint Direction" and "Measure Tool Alignment" from
+  the component context menu.
+- During Play mode, enable Gizmos in the Scene view: blue shows the
+  tool's forward ray; green connects the endpoint to the target centre.
 
 ## Validation results
 
@@ -111,6 +133,10 @@ Automatic following:
   0.0009918 m error, within the 1 mm tolerance.
 - Predicted and actual scene endpoint errors agreed to
   floating-point precision.
+- Automatic triggering was confirmed during debugging. A subsequent
+  solve stopped at iteration 6: error changed from 0.9684123 m to
+  0.9683778 m, then the candidate slightly worsened it to 0.968378 m.
+  No animation started because unsuccessful solutions are not applied.
 
 ## Assumptions and limitations
 
@@ -121,15 +147,18 @@ Automatic following:
 - Different joint configurations can reach the same position.
 - Solver failure does not prove that a target is unreachable.
 - Straight-arm singularities and difficult targets can cause failure.
-- The solver uses a fixed-gain Jacobian-transpose update,
+- The baseline solver uses a Jacobian-transpose update,
   a one-degree per-joint step cap, and up to 500 iterations.
 - Solver work is synchronous and may cause frame pauses.
 - Smooth joint movement does not guarantee a straight endpoint path.
 - Joint limits do not prevent self-collision or obstacle collision.
-- No projectile system, aiming objective, supervised model,
-  or reinforcement learning has been implemented.
+- Alignment measurements describe geometry only, not collisions or hits.
+- No orientation-solving objective, projectile system, supervised model,
+  reinforcement learning, or multi-arm coordinator has been implemented.
+- General IK convergence is explicitly deferred. A step-size reduction
+  was proposed during debugging, but no successful recovery was verified.
 
-## Learning checkpoint — 29 October 2026
+## Learning checkpoint — 30 October 2026
 
 Completed topics:
 - GameObjects, components, and parent/local/world transforms
@@ -139,12 +168,20 @@ Completed topics:
 - Forward kinematics and numerical differentiation
 - Jacobian-transpose IK and convergence checks
 - Coroutines and smooth joint movement
+- Distinguishing automatic triggering, solver success, and animation
+- Endpoint orientation and local-to-world direction conversion
+- Introduced angular alignment, dot-product projection, and ray distance
 
 Resume next:
-1. Confirm automatic following and failed-goal behaviour.
-2. Check responsiveness and solver failure cases.
-3. Improve solver robustness before extending the task objective.
+1. Record one alignment measurement and verify it against the drawn lines.
+2. Continue the manual orientation/alignment exercise independently of IK.
+3. Revisit solver robustness before relying on arbitrary moving goals.
+
+Future direction: a harmless virtual catching or tagging task, followed
+by multi-arm task assignment. No moving-object interception or learned
+coordination has been built.
 
 Workflow:
 Code is explained in chat and entered manually by the learner.
 Features are marked verified only after implementation and testing.
+Documentation may be edited directly when the learner explicitly requests it.

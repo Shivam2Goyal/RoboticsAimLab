@@ -12,6 +12,8 @@ public class ForwardKinematicsCheck : MonoBehaviour {
 
     [SerializeField] private bool automaticFollowing = false;
 
+    [SerializeField] private Transform interactionTarget;
+
     private Vector3 lastAttemptedGoal;
     private bool hasAttemptedGoal = false;
     private float nextSolveTime = 0f;
@@ -335,5 +337,51 @@ public class ForwardKinematicsCheck : MonoBehaviour {
         }
 
         SolveToIKGoal();
+    }
+
+    [ContextMenu("Inspect Endpoint Direction")]
+    private void InspectEndpointDirection(){
+        Vector3 direction = endpoint.rotation * Vector3.forward;
+
+        Debug.Log("Endpoint world direction: " + direction.ToString("F4"));
+    }
+
+    [ContextMenu("Measure Tool Alignment.")]
+    private void MeasureToolAlignment(){
+        if(interactionTarget == null){
+            Debug.Log("Assign an interaction target first.");
+            return;
+        }
+
+        Vector3 offset = interactionTarget.position - endpoint.position;
+        float distance = offset.magnitude;
+
+        if(distance < 0.00001f){
+            Debug.Log("Target is at endpoint; target is undefined.");
+            return;
+        }
+
+        Vector3 forward = endpoint.rotation * Vector3.forward;
+        Vector3 desiredDirection = offset / distance;
+
+        float angleError = Vector3.Angle(forward, desiredDirection);
+        float forwardDistance = Vector3.Dot(offset, forward);
+
+        Vector3 closestPoint = endpoint.position + forward * Mathf.Max(0f, forwardDistance);
+
+        float rayDistance = Vector3.Distance(interactionTarget.position, closestPoint);
+
+        Debug.Log("Angular error (degree): " + angleError);
+        Debug.Log("Target ahead of tool: " + (forwardDistance > 0f));
+        Debug.Log("Target center distance to forward ray (m): " + rayDistance);
+    }
+
+    private void LateUpdate(){
+        if(endpoint == null || interactionTarget == null) return;
+
+        Vector3 forward = endpoint.rotation * Vector3.forward;
+
+        Debug.DrawRay(endpoint.position, forward * 2f, Color.blue);
+        Debug.DrawLine(endpoint.position, interactionTarget.position, Color.green);
     }
 }
