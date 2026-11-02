@@ -27,11 +27,15 @@ Verified:
 - Smooth movement toward successful solutions
 - Scene-goal solving tested after troubleshooting
 - Endpoint orientation indicator along local +Z
+- Alignment geometry checks and configurable alignment-success indicator
+- Continuous-alignment timer and one tag per uninterrupted alignment
 
-Latest addition:
+Latest additions (learner-reported working; code present):
 - Tool-to-target angular error, ahead/behind check, and target-centre
-  distance to the forward ray; implemented, numerical results not yet recorded
-- Blue forward-ray and green target-line visualization in the Scene view
+  distance to the forward ray
+- Configurable 3-degree angular and 0.1-metre ray-distance tolerances
+- Timed virtual tagging with a default one-second continuous hold
+- Red/green/cyan status ray and yellow target line in the Scene view
 
 Automatic replanning triggers correctly, but general goal following is
 not reliable because the position solver can stall. Keep Automatic
@@ -46,7 +50,7 @@ RobotRoot
     └── Joint2
         ├── Link2Visual
         └── Joint3
-            ├── Link2Visual
+            ├── Link3Visual
             └── Joint4
                 ├── Link4Visual
                 └── Joint5
@@ -87,7 +91,7 @@ Joint1 is 0.25 metres above RobotRoot.
   Contains FK diagnostics, pose prediction, numerical Jacobian
   calculations, position IK, smooth movement, and optional
   automatic goal following, endpoint-direction inspection, and
-  target-alignment measurements.
+  target-alignment measurements, visual alignment status, and timed tagging.
 
 ## Controls
 
@@ -120,8 +124,18 @@ Orientation and alignment:
 - ToolDirectionVisual extends along the endpoint's local +Z direction.
 - Use "Inspect Endpoint Direction" and "Measure Tool Alignment" from
   the component context menu.
-- During Play mode, enable Gizmos in the Scene view: blue shows the
-  tool's forward ray; green connects the endpoint to the target centre.
+- During Play mode, enable Gizmos in the Scene view. The yellow line
+  connects the endpoint to the target centre. The forward ray is red
+  when unaligned, green while holding alignment, and cyan after a tag.
+
+Timed virtual tagging:
+- The target must be ahead and within both alignment tolerances.
+- Hold alignment continuously for Required Hold Time (default: 1 second).
+- A successful hold logs a tag and increments the play-session counter.
+- Remaining aligned does not repeatedly register tags.
+- Losing alignment resets the hold timer and permits another tag.
+- The same target can be tagged again after breaking and restoring alignment.
+- Timer and count are not yet displayed in a Game-view HUD.
 
 ## Validation results
 
@@ -137,6 +151,13 @@ Orientation and alignment:
   solve stopped at iteration 6: error changed from 0.9684123 m to
   0.9683778 m, then the candidate slightly worsened it to 0.968378 m.
   No animation started because unsuccessful solutions are not applied.
+- Alignment tests were accepted as working by the learner. With all
+  joints at zero, the reference cases are:
+  - Target (0, 4.65, 2): 0 degrees, ahead, 0 m ray distance.
+  - Target (1, 4.65, 2): about 26.565 degrees, ahead, 1 m ray distance.
+  - Target (0, 4.65, -2): 180 degrees, behind, 2 m ray distance.
+- Colour-threshold and timed-tag exercises were reported working.
+  Raw measurements and timing logs have not been archived.
 
 ## Assumptions and limitations
 
@@ -153,12 +174,14 @@ Orientation and alignment:
 - Smooth joint movement does not guarantee a straight endpoint path.
 - Joint limits do not prevent self-collision or obstacle collision.
 - Alignment measurements describe geometry only, not collisions or hits.
+- Tags are geometric alignment events, not physical contact or projectile
+  hits; target size and intervening obstacles are ignored.
 - No orientation-solving objective, projectile system, supervised model,
   reinforcement learning, or multi-arm coordinator has been implemented.
 - General IK convergence is explicitly deferred. A step-size reduction
   was proposed during debugging, but no successful recovery was verified.
 
-## Learning checkpoint — 30 October 2026
+## Learning checkpoint — 2 November 2026
 
 Completed topics:
 - GameObjects, components, and parent/local/world transforms
@@ -170,11 +193,13 @@ Completed topics:
 - Coroutines and smooth joint movement
 - Distinguishing automatic triggering, solver success, and animation
 - Endpoint orientation and local-to-world direction conversion
-- Introduced angular alignment, dot-product projection, and ray distance
+- Angular alignment, dot-product projection, and forward-ray distance
+- Combining angle and distance thresholds into a boolean success condition
+- Continuous hold timing, reset behaviour, and preventing repeated events
 
 Resume next:
-1. Record one alignment measurement and verify it against the drawn lines.
-2. Continue the manual orientation/alignment exercise independently of IK.
+1. Display alignment status, hold progress, and tag count in the Game view.
+2. Continue the manual tagging task independently of the deferred IK issue.
 3. Revisit solver robustness before relying on arbitrary moving goals.
 
 Future direction: a harmless virtual catching or tagging task, followed

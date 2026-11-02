@@ -14,6 +14,15 @@ public class ForwardKinematicsCheck : MonoBehaviour {
 
     [SerializeField] private Transform interactionTarget;
 
+    [SerializeField] private float alignmentAngleTolerance = 3f;
+    [SerializeField] private float alignmentDistanceTolerance = 0.1f;
+
+    [SerializeField] private float requiredHoldTime = 1f;
+
+    private float alignmentTime = 0f;
+    private bool tagRegistered = false;
+    private int tagCount = 0;
+
     private Vector3 lastAttemptedGoal;
     private bool hasAttemptedGoal = false;
     private float nextSolveTime = 0f;
@@ -376,12 +385,70 @@ public class ForwardKinematicsCheck : MonoBehaviour {
         Debug.Log("Target center distance to forward ray (m): " + rayDistance);
     }
 
-    private void LateUpdate(){
-        if(endpoint == null || interactionTarget == null) return;
+    private void LateUpdate()
+    {
+        if (endpoint == null || interactionTarget == null)
+        {
+            UpdateAlignmentHold(false);
+            return;
+        }
+
+        bool aligned = IsToolAligned();
+        UpdateAlignmentHold(aligned);
+
+        Color alignmentColor = Color.red;
+
+        if (aligned)
+            alignmentColor = tagRegistered ? Color.cyan : Color.green;
 
         Vector3 forward = endpoint.rotation * Vector3.forward;
 
-        Debug.DrawRay(endpoint.position, forward * 2f, Color.blue);
-        Debug.DrawLine(endpoint.position, interactionTarget.position, Color.green);
+        Debug.DrawRay(endpoint.position, forward * 2f, alignmentColor);
+        Debug.DrawLine(
+            endpoint.position,
+            interactionTarget.position,
+            Color.yellow
+        );
+    }
+
+    private bool IsToolAligned(){
+        if(endpoint == null || interactionTarget == null) return false;
+
+        Vector3 offset = interactionTarget.position - endpoint.position;
+        float distance = offset.magnitude;
+
+        if(distance < 0.00001f) return false;
+
+        Vector3 forward = endpoint.rotation * Vector3.forward;
+        float forwardDistance = Vector3.Dot(offset, forward);
+
+        if(forwardDistance <= 0f) return false;
+
+        float angleError = Vector3.Angle(forward, offset);
+
+        Vector3 closestPoint = endpoint.position + forward * forwardDistance;
+
+        float rayDistance = Vector3.Distance(interactionTarget.position, closestPoint);
+
+        return angleError <= alignmentAngleTolerance && rayDistance <= alignmentDistanceTolerance;
+    }
+
+    private void UpdateAlignmentHold(bool aligned){
+        if(!aligned){
+            alignmentTime  = 0f;
+            tagRegistered = false;
+            return;
+        }
+
+        if(tagRegistered) return;
+
+        alignmentTime += Time.deltaTime;
+
+        if(alignmentTime >= requiredHoldTime){
+            tagRegistered = true;
+            tagCount++;
+
+            Debug.Log("Virtual tag registered. Total: " + tagCount);
+        }
     }
 }
